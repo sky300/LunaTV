@@ -128,6 +128,12 @@ jobs:
         run: |
           docker buildx imagetools create -t ghcr.io/${{ steps.lowercase.outputs.owner }}/${{ steps.lowercase_repo.outputs.repo }}:${{ github.event.inputs.tag || 'latest' }} \
             $(printf 'ghcr.io/${{ steps.lowercase.outputs.owner }}/${{ steps.lowercase_repo.outputs.repo }}@sha256:%s ' *)
+      - name: Make GHCR package public
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X PATCH /user/packages/container/${{ steps.lowercase_repo.outputs.repo }}/visibility -f visibility=public || \
+          gh api -X PATCH /orgs/${{ steps.lowercase.outputs.owner }}/packages/container/${{ steps.lowercase_repo.outputs.repo }}/visibility -f visibility=public
 
   cleanup-refresh:
     runs-on: ubuntu-latest
