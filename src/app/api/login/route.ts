@@ -69,7 +69,7 @@ async function generateAuthCookie(
 
 export async function POST(req: NextRequest) {
   try {
-    // 本地 / localStorage 模式——仅校验固定密码
+    // 本地 / localStorage 模式——仅校验固定密码（不记录登录日志）
     if (STORAGE_TYPE === 'localstorage') {
       const envPassword = process.env.PASSWORD;
 
@@ -81,9 +81,9 @@ export async function POST(req: NextRequest) {
         response.cookies.set('auth', '', {
           path: '/',
           expires: new Date(0),
-          sameSite: 'lax', // 改为 lax 以支持 PWA
-          httpOnly: false, // PWA 需要客户端可访问
-          secure: false, // 根据协议自动设置
+          sameSite: 'lax',
+          httpOnly: false,
+          secure: false,
         });
 
         return response;
@@ -108,22 +108,22 @@ export async function POST(req: NextRequest) {
         password,
         'user',
         true
-      ); // localstorage 模式包含 password
+      );
       const expires = new Date();
-      expires.setDate(expires.getDate() + 7); // 7天过期
+      expires.setDate(expires.getDate() + 7);
 
       response.cookies.set('auth', cookieValue, {
         path: '/',
         expires,
-        sameSite: 'lax', // 改为 lax 以支持 PWA
-        httpOnly: false, // PWA 需要客户端可访问
-        secure: false, // 根据协议自动设置
+        sameSite: 'lax',
+        httpOnly: false,
+        secure: false,
       });
 
       return response;
     }
 
-    // 数据库 / redis 模式——校验用户名并尝试连接数据库
+    // 数据库 / redis 模式——校验用户名并记录登录日志
     const { username, password } = await req.json();
 
     if (!username || typeof username !== 'string') {
@@ -132,6 +132,9 @@ export async function POST(req: NextRequest) {
     if (!password || typeof password !== 'string') {
       return NextResponse.json({ error: '密码不能为空' }, { status: 400 });
     }
+
+    const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+    const ua = req.headers.get('user-agent') || '';
 
     // 可能是站长，直接读环境变量
     if (
@@ -145,26 +148,53 @@ export async function POST(req: NextRequest) {
         password,
         'owner',
         false
-      ); // 数据库模式不包含 password
+      );
       const expires = new Date();
-      expires.setDate(expires.getDate() + 7); // 7天过期
+      expires.setDate(expires.getDate() + 7);
 
       response.cookies.set('auth', cookieValue, {
         path: '/',
         expires,
-        sameSite: 'lax', // 改为 lax 以支持 PWA
-        httpOnly: false, // PWA 需要客户端可访问
-        secure: false, // 根据协议自动设置
+        sameSite: 'lax',
+        httpOnly: false,
+        secure: false,
+      });
+
+      // 记录站长登录成功
+      await db.addLoginLog(username, {
+        username,
+        ip,
+        ua,
+        success: true,
+        time: Date.now(),
       });
 
       return response;
     } else if (username === process.env.USERNAME) {
+      // 记录站长登录失败（密码错误）
+      await db.addLoginLog(username, {
+        username,
+        ip,
+        ua,
+        success: false,
+        reason: 'invalid_credentials',
+        time: Date.now(),
+      });
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
 
     const config = await getConfig();
     const user = config.UserConfig.Users.find((u) => u.username === username);
     if (user && user.banned) {
+      // 记录用户被封禁的登录尝试
+      await db.addLoginLog(username, {
+        username,
+        ip,
+        ua,
+        success: false,
+        reason: 'user_banned',
+        time: Date.now(),
+      });
       return NextResponse.json({ error: '用户被封禁' }, { status: 401 });
     }
 
@@ -172,6 +202,15 @@ export async function POST(req: NextRequest) {
     try {
       const pass = await db.verifyUser(username, password);
       if (!pass) {
+        // 记录密码错误
+        await db.addLoginLog(username, {
+          username,
+          ip,
+          ua,
+          success: false,
+          reason: 'invalid_credentials',
+          time: Date.now(),
+        });
         return NextResponse.json(
           { error: '用户名或密码错误' },
           { status: 401 }
@@ -185,21 +224,39 @@ export async function POST(req: NextRequest) {
         password,
         user?.role || 'user',
         false
-      ); // 数据库模式不包含 password
+      );
       const expires = new Date();
-      expires.setDate(expires.getDate() + 7); // 7天过期
+      expires.setDate(expires.getDate() + 7);
 
       response.cookies.set('auth', cookieValue, {
         path: '/',
         expires,
-        sameSite: 'lax', // 改为 lax 以支持 PWA
-        httpOnly: false, // PWA 需要客户端可访问
-        secure: false, // 根据协议自动设置
+        sameSite: 'lax',
+        httpOnly: false,
+        secure: false,
+      });
+
+      // 记录登录成功
+      await db.addLoginLog(username, {
+        username,
+        ip,
+        ua,
+        success: true,
+        time: Date.now(),
       });
 
       return response;
     } catch (err) {
       console.error('数据库验证失败', err);
+      // 记录数据库错误
+      await db.addLoginLog(username, {
+        username,
+        ip,
+        ua,
+        success: false,
+        reason: 'db_error',
+        time: Date.now(),
+      });
       return NextResponse.json({ error: '数据库错误' }, { status: 500 });
     }
   } catch (error) {

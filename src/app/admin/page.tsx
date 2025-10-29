@@ -46,6 +46,7 @@ import { getAuthInfoFromBrowserCookie } from '@/lib/auth';
 
 import DataMigration from '@/components/DataMigration';
 import PageLayout from '@/components/PageLayout';
+import AdminLoginLogs from '@/components/AdminLoginLogs';
 
 // 统一按钮样式系统
 const buttonStyles = {
@@ -4504,6 +4505,7 @@ function AdminPageClient() {
     siteConfig: false,
     categoryConfig: false,
     configFile: false,
+    logManagement: false,
     dataMigration: false,
   });
 
@@ -4703,6 +4705,16 @@ function AdminPageClient() {
               onToggle={() => toggleTab('categoryConfig')}
             >
               <CategoryConfig config={config} refreshConfig={fetchConfig} />
+            </CollapsibleTab>
+
+            {/* 日志管理标签 */}
+            <CollapsibleTab
+              title='日志管理'
+              icon={<FileText size={20} className='text-gray-600 dark:text-gray-400' />}
+              isExpanded={expandedTabs.logManagement}
+              onToggle={() => toggleTab('logManagement')}
+            >
+              <AdminLoginLogs />
             </CollapsibleTab>
 
             {/* 数据迁移标签 - 仅站长可见 */}

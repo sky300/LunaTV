@@ -3,7 +3,7 @@
 import { Redis } from '@upstash/redis';
 
 import { AdminConfig } from './admin.types';
-import { Favorite, IStorage, PlayRecord, SkipConfig } from './types';
+import { Favorite, IStorage, PlayRecord, SkipConfig, LoginLog } from './types';
 
 // 搜索历史最大条数
 const SEARCH_HISTORY_LIMIT = 20;
@@ -250,6 +250,34 @@ export class UpstashRedisStorage implements IStorage {
     } else {
       await withRetry(() => this.client.del(key));
     }
+  }
+
+  // ---------- 登录日志 ----------
+  private llKey(user: string) {
+    return `u:${user}:ll`; // u:username:ll
+  }
+
+  async addLoginLog(userName: string, log: LoginLog): Promise<void> {
+    const key = this.llKey(userName);
+    await withRetry(() => this.client.lpush(key, JSON.stringify(log)));
+    // 限制最大长度为 100 条
+    await withRetry(() => this.client.ltrim(key, 0, 99));
+  }
+
+  async getLoginLogs(userName: string, limit = 50): Promise<LoginLog[]> {
+    const key = this.llKey(userName);
+    const result = await withRetry(() =>
+      this.client.lrange(key, 0, Math.max(0, limit - 1))
+    );
+    return (result as string[])
+      .map((item) => {
+        try {
+          return JSON.parse(item) as LoginLog;
+        } catch {
+          return undefined as unknown as LoginLog;
+        }
+      })
+      .filter((v): v is LoginLog => Boolean(v));
   }
 
   // ---------- 获取全部用户 ----------

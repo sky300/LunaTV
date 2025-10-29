@@ -59,6 +59,10 @@ export interface IStorage {
   addSearchHistory(userName: string, keyword: string): Promise<void>;
   deleteSearchHistory(userName: string, keyword?: string): Promise<void>;
 
+  // 登录日志相关
+  addLoginLog(userName: string, log: LoginLog): Promise<void>;
+  getLoginLogs(userName: string, limit?: number): Promise<LoginLog[]>;
+
   // 用户列表
   getAllUsers(): Promise<string[]>;
 
@@ -83,6 +87,16 @@ export interface IStorage {
 
   // 数据清理相关
   clearAllData(): Promise<void>;
+}
+
+// 登录日志数据结构
+export interface LoginLog {
+  username: string;
+  ip: string;
+  ua: string;
+  success: boolean;
+  reason?: string;
+  time: number;
 }
 
 // 搜索结果数据结构
