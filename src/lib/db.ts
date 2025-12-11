@@ -3,7 +3,7 @@
 import { AdminConfig } from './admin.types';
 import { KvrocksStorage } from './kvrocks.db';
 import { RedisStorage } from './redis.db';
-import { Favorite, IStorage, PlayRecord, SkipConfig, LoginLog } from './types';
+import { Favorite, IStorage, LoginLog,PlayRecord, SkipConfig } from './types';
 import { UpstashRedisStorage } from './upstash.db';
 
 // storage type 常量: 'localstorage' | 'redis' | 'upstash'，默认 'localstorage'
@@ -179,6 +179,18 @@ export class DbManager {
       return (this.storage as any).getLoginLogs(userName, limit);
     }
     return [];
+  }
+
+  async deleteLoginLog(userName: string, logId: string): Promise<void> {
+    if (typeof (this.storage as any).deleteLoginLog === 'function') {
+      await (this.storage as any).deleteLoginLog(userName, logId);
+    }
+  }
+
+  async deleteLoginLogs(userName: string, logIds: string[]): Promise<void> {
+    if (typeof (this.storage as any).deleteLoginLogs === 'function') {
+      await (this.storage as any).deleteLoginLogs(userName, logIds);
+    }
   }
 
   // 获取全部用户名

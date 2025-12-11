@@ -1502,6 +1502,18 @@ function PlayPageClient() {
       // 监听播放状态变化，控制 Wake Lock
       artPlayerRef.current.on('play', () => {
         requestWakeLock();
+        
+        // 记录播放日志
+        fetch('/api/log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'play',
+            content: `${videoTitle} - 第${currentEpisodeIndex + 1}集`,
+          }),
+        }).catch(err => console.error('记录播放日志失败:', err));
       });
 
       artPlayerRef.current.on('pause', () => {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
+import { LogType } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -167,6 +168,7 @@ export async function POST(req: NextRequest) {
         ua,
         success: true,
         time: Date.now(),
+        type: LogType.LOGIN,
       });
 
       return response;
@@ -179,6 +181,7 @@ export async function POST(req: NextRequest) {
         success: false,
         reason: 'invalid_credentials',
         time: Date.now(),
+        type: LogType.LOGIN,
       });
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
@@ -194,6 +197,7 @@ export async function POST(req: NextRequest) {
         success: false,
         reason: 'user_banned',
         time: Date.now(),
+        type: LogType.LOGIN,
       });
       return NextResponse.json({ error: '用户被封禁' }, { status: 401 });
     }
@@ -210,6 +214,7 @@ export async function POST(req: NextRequest) {
           success: false,
           reason: 'invalid_credentials',
           time: Date.now(),
+          type: LogType.LOGIN,
         });
         return NextResponse.json(
           { error: '用户名或密码错误' },
@@ -243,6 +248,7 @@ export async function POST(req: NextRequest) {
         ua,
         success: true,
         time: Date.now(),
+        type: LogType.LOGIN,
       });
 
       return response;
@@ -256,6 +262,7 @@ export async function POST(req: NextRequest) {
         success: false,
         reason: 'db_error',
         time: Date.now(),
+        type: LogType.LOGIN,
       });
       return NextResponse.json({ error: '数据库错误' }, { status: 500 });
     }

@@ -62,6 +62,8 @@ export interface IStorage {
   // 登录日志相关
   addLoginLog(userName: string, log: LoginLog): Promise<void>;
   getLoginLogs(userName: string, limit?: number): Promise<LoginLog[]>;
+  deleteLoginLog(userName: string, logId: string): Promise<void>;
+  deleteLoginLogs(userName: string, logIds: string[]): Promise<void>;
 
   // 用户列表
   getAllUsers(): Promise<string[]>;
@@ -89,14 +91,24 @@ export interface IStorage {
   clearAllData(): Promise<void>;
 }
 
+// 日志类型枚举
+export enum LogType {
+  LOGIN = 'login',
+  SEARCH = 'search',
+  PLAY = 'play'
+}
+
 // 登录日志数据结构
 export interface LoginLog {
+  id?: string; // 唯一标识，用于删除
   username: string;
   ip: string;
   ua: string;
   success: boolean;
   reason?: string;
   time: number;
+  type: LogType;
+  content?: string; // 搜索的名称或播放的节目名称
 }
 
 // 搜索结果数据结构

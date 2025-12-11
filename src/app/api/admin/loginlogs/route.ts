@@ -82,3 +82,58 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: '服务器错误' }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/admin/loginlogs
+ * 删除登录日志
+ * - 支持单条删除（logId参数）
+ * - 支持多选删除（logIds参数，JSON数组）
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const authInfo = getAuthInfoFromCookie(request);
+    if (!authInfo || !authInfo.username) {
+      return NextResponse.json({ error: '未登录' }, { status: 401 });
+    }
+
+    const config = await getConfig();
+    
+    // 权限与状态校验
+    const isOwner = authInfo.username === process.env.USERNAME;
+    
+    // 获取请求体
+    const body = await request.json();
+    const { logId, logIds, username } = body;
+    
+    // 验证用户名
+    const queryUser = username || authInfo.username;
+    
+    if (!isOwner && queryUser !== authInfo.username) {
+      return NextResponse.json({ error: '权限不足' }, { status: 403 });
+    }
+    
+    // 检查用户存在或被封禁
+    const user = config.UserConfig.Users.find(
+      (u) => u.username === queryUser
+    );
+    if (!user && queryUser !== process.env.USERNAME) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 });
+    }
+    
+    // 执行删除操作
+    if (logId) {
+      // 单条删除
+      await db.deleteLoginLog(queryUser, logId);
+    } else if (logIds && Array.isArray(logIds)) {
+      // 多选删除
+      await db.deleteLoginLogs(queryUser, logIds);
+    } else {
+      return NextResponse.json({ error: '缺少必要参数' }, { status: 400 });
+    }
+    
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (error) {
+    console.error('删除登录日志失败:', error);
+    return NextResponse.json({ error: '服务器错误' }, { status: 500 });
+  }
+}

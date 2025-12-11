@@ -3,10 +3,12 @@
 import { Redis } from '@upstash/redis';
 
 import { AdminConfig } from './admin.types';
-import { Favorite, IStorage, PlayRecord, SkipConfig, LoginLog } from './types';
+import { Favorite, IStorage, LoginLog,PlayRecord, SkipConfig } from './types';
 
 // 搜索历史最大条数
 const SEARCH_HISTORY_LIMIT = 20;
+// 日志最大条数
+const LOG_LIMIT = 1000;
 
 // 数据类型转换辅助函数
 function ensureString(value: any): string {
@@ -259,9 +261,14 @@ export class UpstashRedisStorage implements IStorage {
 
   async addLoginLog(userName: string, log: LoginLog): Promise<void> {
     const key = this.llKey(userName);
-    await withRetry(() => this.client.lpush(key, JSON.stringify(log)));
-    // 限制最大长度为 100 条
-    await withRetry(() => this.client.ltrim(key, 0, 99));
+    // 生成唯一ID
+    const logWithId = {
+      ...log,
+      id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+    await withRetry(() => this.client.lpush(key, JSON.stringify(logWithId)));
+    // 限制最大长度为 1000 条
+    await withRetry(() => this.client.ltrim(key, 0, LOG_LIMIT - 1));
   }
 
   async getLoginLogs(userName: string, limit = 50): Promise<LoginLog[]> {
@@ -278,6 +285,43 @@ export class UpstashRedisStorage implements IStorage {
         }
       })
       .filter((v): v is LoginLog => Boolean(v));
+  }
+
+  async deleteLoginLog(userName: string, logId: string): Promise<void> {
+    const key = this.llKey(userName);
+    // 获取所有日志
+    const logs = await withRetry(() => this.client.lrange(key, 0, -1));
+    // 遍历日志，找到要删除的日志并移除
+    for (let i = 0; i < logs.length; i++) {
+      try {
+        const log = JSON.parse(logs[i] as string) as LoginLog;
+        if (log.id === logId) {
+          await withRetry(() => this.client.lrem(key, 1, logs[i]));
+          break;
+        }
+      } catch {
+        // 跳过无效日志
+        continue;
+      }
+    }
+  }
+
+  async deleteLoginLogs(userName: string, logIds: string[]): Promise<void> {
+    const key = this.llKey(userName);
+    // 获取所有日志
+    const logs = await withRetry(() => this.client.lrange(key, 0, -1));
+    // 遍历日志，找到要删除的日志并移除
+    for (let i = 0; i < logs.length; i++) {
+      try {
+        const log = JSON.parse(logs[i] as string) as LoginLog;
+        if (log.id && logIds.includes(log.id)) {
+          await withRetry(() => this.client.lrem(key, 1, logs[i]));
+        }
+      } catch {
+        // 跳过无效日志
+        continue;
+      }
+    }
   }
 
   // ---------- 获取全部用户 ----------
