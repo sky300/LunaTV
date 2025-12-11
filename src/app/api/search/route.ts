@@ -65,11 +65,6 @@ export async function GET(request: NextRequest) {
     }
     const cacheTime = await getCacheTime();
 
-    if (flattenedResults.length === 0) {
-      // no cache if empty
-      return NextResponse.json({ results: [] }, { status: 200 });
-    }
-
     // 记录搜索日志
     await db.addLoginLog(authInfo.username, {
       username: authInfo.username,
@@ -80,6 +75,11 @@ export async function GET(request: NextRequest) {
       type: LogType.SEARCH,
       content: query,
     });
+
+    if (flattenedResults.length === 0) {
+      // no cache if empty
+      return NextResponse.json({ results: [] }, { status: 200 });
+    }
 
     return NextResponse.json(
       { results: flattenedResults },
