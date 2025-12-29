@@ -4,7 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getAvailableApiSites, getConfig } from '@/lib/config';
+import { db } from '@/lib/db';
 import { searchFromApi } from '@/lib/downstream';
+import { LogType } from '@/lib/types';
 import { yellowWords } from '@/lib/yellow';
 
 export const runtime = 'nodejs';
@@ -32,6 +34,21 @@ export async function GET(request: NextRequest) {
 
   const config = await getConfig();
   const apiSites = await getAvailableApiSites(authInfo.username);
+
+  // 记录搜索日志
+  try {
+    await db.addLoginLog(authInfo.username, {
+      username: authInfo.username,
+      ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+      ua: request.headers.get('user-agent') || '',
+      success: true,
+      time: Date.now(),
+      type: LogType.SEARCH,
+      content: query,
+    });
+  } catch (error) {
+    console.error('记录搜索日志失败:', error);
+  }
 
   // 共享状态
   let streamClosed = false;

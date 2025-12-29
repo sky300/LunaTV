@@ -44,3 +44,5 @@ sitemap-*.xml
 src/lib/runtime.ts
 public/manifest.json
 .node/node-v20.17.0-win-x64/node.exe
+plans/日志记录问题分析.md
+plans/日志记录修复总结.md

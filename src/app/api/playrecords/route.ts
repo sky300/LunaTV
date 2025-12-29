@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthInfoFromCookie } from '@/lib/auth';
 import { getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
-import { PlayRecord } from '@/lib/types';
+import { LogType, PlayRecord } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
@@ -97,6 +97,24 @@ export async function POST(request: NextRequest) {
     } as PlayRecord;
 
     await db.savePlayRecord(authInfo.username, source, id, finalRecord);
+
+    // 记录播放日志
+    try {
+      const episodeInfo = finalRecord.total_episodes > 1
+        ? ` - 第${finalRecord.index}集`
+        : '';
+      await db.addLoginLog(authInfo.username, {
+        username: authInfo.username,
+        ip: request.headers.get('x-forwarded-for') || '127.0.0.1',
+        ua: request.headers.get('user-agent') || '',
+        success: true,
+        time: Date.now(),
+        type: LogType.PLAY,
+        content: `${finalRecord.title}${episodeInfo}`,
+      });
+    } catch (error) {
+      console.error('记录播放日志失败:', error);
+    }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
